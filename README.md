@@ -90,10 +90,34 @@ yarn start
 
 ## Docker
 
+### Subir com Docker Compose
+
+1. Edite as variaveis no `docker-compose.yml` (ou crie um `.env.local`).
+
+2. Suba o container:
+
 ```bash
-docker build -t erp-frontend .
-docker run -p 3000:3000 --env-file .env.local erp-frontend
+docker compose up -d
 ```
+
+O frontend estara disponivel em [http://localhost:3000](http://localhost:3000).
+
+> O backend precisa estar rodando para o frontend funcionar. Veja as instrucoes no repositorio [ERP-BACKEND](https://github.com/desenvolvedorabc/ERP-BACKEND).
+
+### Build manual (sem docker-compose)
+
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_API_URL=http://localhost:3003 \
+  --build-arg NEXTAUTH_URL=http://localhost:3000 \
+  --build-arg NEXTAUTH_SECRET=sua-chave-secreta \
+  --build-arg NODE_ENV=production \
+  -t erp-frontend .
+
+docker run -p 3000:3000 erp-frontend
+```
+
+> **Nota:** As variaveis `NEXT_PUBLIC_*` precisam ser passadas como `--build-arg` porque o Next.js as injeta no bundle durante o build.
 
 ## Estrutura do Projeto
 
