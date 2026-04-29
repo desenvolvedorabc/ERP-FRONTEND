@@ -218,6 +218,13 @@ export async function getExportCollaborator(params: IGetCollaborator) {
   })
 }
 
+export async function getExportCollaboratorTimeline(params: IGetCollaborator) {
+  return api.get(`/collaborators/timeline/csv`, {
+    params,
+    responseType: 'blob',
+  })
+}
+
 export const useGetCollaboratorByNameOrCPF = (nameOrCNPJ: string, payableId?: number) => {
   const { refetch } = useQuery({
     queryKey: ['collaboratorByNameOrCPF'],

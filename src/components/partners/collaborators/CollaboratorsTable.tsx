@@ -4,6 +4,8 @@ import {
   Box,
   IconButton,
   InputAdornment,
+  Menu,
+  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -42,6 +44,7 @@ import {
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import {
   getExportCollaborator,
+  getExportCollaboratorTimeline,
   importCollaborators,
   useGetCollaborators,
 } from '@/services/collaborator'
@@ -131,6 +134,271 @@ const MAX_IMPORT_FILE_SIZE_MB =
       process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ||
       10,
   ) || null
+
+const COLLABORATOR_CSV_TEMPLATE_HEADERS = [
+  'nome',
+  'nome_contato_emergencia',
+  'email',
+  'telefone',
+  'telefone_contato_emergencia',
+  'cpf',
+  'rg',
+  'status_cadastro',
+  'ativo',
+  'desativador_por',
+  'programa',
+  'funcao',
+  'inicio_contrato',
+  'data_nascimento',
+  'endereco_completo',
+  'vinculo_empregaticio',
+  'identidade_de_genero',
+  'raca_cor',
+  'alergias',
+  'categoria_alimentar',
+  'descricao_categoria_alimentar',
+  'escolaridade',
+  'experiencia_setor_publico',
+  'biografia',
+  'remuneracao',
+  'historico',
+]
+
+interface DicionarioEntry {
+  campo: string
+  descricao: string
+  obrigatorio: string
+  tipo: string
+  formato: string
+  valores_aceitos: string
+}
+
+const COLLABORATOR_DICIONARIO: DicionarioEntry[] = [
+  {
+    campo: 'nome',
+    descricao: 'Nome completo do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Texto livre',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'nome_contato_emergencia',
+    descricao: 'Nome do contato de emergencia do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Texto livre',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'email',
+    descricao: 'Endereco de e-mail do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'exemplo@dominio.com',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'telefone',
+    descricao: 'Numero de telefone do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: '(XX) XXXXX-XXXX',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'telefone_contato_emergencia',
+    descricao: 'Numero de telefone do contato de emergencia',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: '(XX) XXXXX-XXXX',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'cpf',
+    descricao: 'CPF do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'XXX.XXX.XXX-XX',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'rg',
+    descricao: 'RG do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Texto livre',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'status_cadastro',
+    descricao: 'Situacao cadastral do colaborador no sistema',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'PRE_CADASTRO | CADASTRO_COMPLETO',
+  },
+  {
+    campo: 'ativo',
+    descricao: 'Indica se o colaborador esta ativo',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'Sim | Nao',
+  },
+  {
+    campo: 'desativador_por',
+    descricao: 'Motivo da desativacao do colaborador. Use N/A quando ativo = Sim',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'DESLIGAMENTO_ABC | FALECIMENTO | TEMPO_CONTRATO_FINALIZADO | SOLICITACAO_RESCISAO_CONTRATUAL',
+  },
+  {
+    campo: 'programa',
+    descricao: 'Programa ao qual o colaborador esta vinculado',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'EPV | PARC',
+  },
+  {
+    campo: 'funcao',
+    descricao: 'Cargo ou funcao do colaborador dentro do programa',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Texto livre',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'inicio_contrato',
+    descricao: 'Data de inicio do contrato do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Data',
+    formato: 'DD/MM/AAAA',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'data_nascimento',
+    descricao: 'Data de nascimento do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Data',
+    formato: 'DD/MM/AAAA',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'endereco_completo',
+    descricao: 'Endereco completo do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Texto livre',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'vinculo_empregaticio',
+    descricao: 'Tipo de vinculo empregaticio do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'CLT | PJ',
+  },
+  {
+    campo: 'identidade_de_genero',
+    descricao: 'Identidade de genero do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'HOMEM_CIS | MULHER_CIS | HOMEM_TRANS | MULHER_TRANS | NAO_BINARIO | OUTRO',
+  },
+  {
+    campo: 'raca_cor',
+    descricao: 'Raca ou cor autodeclarada do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'BRANCO | PRETO | PARDO | AMARELO | INDIGENA',
+  },
+  {
+    campo: 'alergias',
+    descricao: 'Alergias do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Texto livre',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'categoria_alimentar',
+    descricao: 'Categoria alimentar do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'ONIVORO | VEGETARIANO | VEGANO | OUTRO',
+  },
+  {
+    campo: 'descricao_categoria_alimentar',
+    descricao: 'Descricao adicional sobre a categoria alimentar',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Texto livre',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'escolaridade',
+    descricao: 'Nivel de escolaridade do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'ENSINO_MEDIO | ENSINO_SUPERIOR | POS_GRADUACAO | MESTRADO | DOUTORADO',
+  },
+  {
+    campo: 'experiencia_setor_publico',
+    descricao: 'Indica se o colaborador possui experiencia no setor publico',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Valor fixo',
+    valores_aceitos: 'Sim | Nao',
+  },
+  {
+    campo: 'biografia',
+    descricao: 'Biografia ou descricao do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'Texto livre',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'remuneracao',
+    descricao: 'Remuneracao do colaborador',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: 'R$ X.XXX,XX',
+    valores_aceitos: '',
+  },
+  {
+    campo: 'historico',
+    descricao: 'Historico retroativo do colaborador importado de outro sistema. Cada evento deve estar entre chaves {}. Se o colaborador nao possui historico retroativo, preencher apenas com {} para evitar erro de importacao',
+    obrigatorio: 'Sim',
+    tipo: 'Texto',
+    formato: '{evento 1}{evento 2}{evento 3} ou {} quando sem historico',
+    valores_aceitos: '',
+  },
+]
+
+function generateDicionarioCSV(): Blob {
+  const header = 'campo,descricao,obrigatorio,tipo,formato,valores_aceitos'
+  const rows = COLLABORATOR_DICIONARIO.map((entry) => {
+    const values = [
+      entry.campo,
+      entry.descricao,
+      entry.obrigatorio,
+      entry.tipo,
+      entry.formato,
+      entry.valores_aceitos,
+    ].map((v) => (v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v))
+    return values.join(',')
+  })
+  return new Blob([[header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' })
+}
 
 interface EnhancedTableProps {
   onRequestSort: (event: React.MouseEvent<unknown>, property: keyof Data) => void
@@ -228,6 +496,7 @@ export default function CollaboratorsTable() {
     Array<{ line: number; message: string; rowData?: Record<string, any> }>
   >([])
   const [originalFile, setOriginalFile] = useState<File | null>(null)
+  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
   const debouncedSearchTerm = useDebounce(searchTerm, 1000)
 
   const { data, isLoading: isLoadingUsers } = useGetCollaborators({
@@ -731,24 +1000,41 @@ export default function CollaboratorsTable() {
     getListRoles()
   }, [selectedProgram])
 
+  const exportFilters = {
+    page: 1,
+    limit: 9999999,
+    search,
+    age: filterAge,
+    yearOfContract: filterYear,
+    genderIdentities: filterGender,
+    breeds: filterRace,
+    educations: filterEducation,
+    status: filterSituation,
+    occupationAreas: filterProgram,
+    employmentRelationships: filterEmployment,
+    disableBy: filterDisabled,
+    roles: filterRole,
+    active: filterStatus,
+  }
+
   const handleExport = async () => {
-    const resp = await getExportCollaborator({
-      page: 1,
-      limit: 9999999,
-      search,
-      age: filterAge,
-      yearOfContract: filterYear,
-      genderIdentities: filterGender,
-      breeds: filterRace,
-      educations: filterEducation,
-      status: filterSituation,
-      occupationAreas: filterProgram,
-      employmentRelationships: filterEmployment,
-      disableBy: filterDisabled,
-      roles: filterRole,
-      active: filterStatus,
-    })
+    setExportMenuAnchor(null)
+    const resp = await getExportCollaborator(exportFilters)
     saveAs(resp?.data, 'Colaboradores.csv')
+    saveAs(generateDicionarioCSV(), 'colaboradores_dicionario.csv')
+  }
+
+  const handleExportTimeline = async () => {
+    setExportMenuAnchor(null)
+    const resp = await getExportCollaboratorTimeline(exportFilters)
+    saveAs(resp?.data, 'Colaboradores-Historico.csv')
+  }
+
+  const handleExportTemplate = () => {
+    setExportMenuAnchor(null)
+    const csvContent = COLLABORATOR_CSV_TEMPLATE_HEADERS.join(',')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    saveAs(blob, 'Template-Colaboradores.csv')
   }
 
   return (
@@ -1033,9 +1319,18 @@ export default function CollaboratorsTable() {
             >
               Filtrar
             </Button>
-            <Button variant="erpSecondary" onClick={() => handleExport()}>
+            <Button variant="erpSecondary" onClick={(e) => setExportMenuAnchor(e.currentTarget)}>
               Exportar
             </Button>
+            <Menu
+              anchorEl={exportMenuAnchor}
+              open={Boolean(exportMenuAnchor)}
+              onClose={() => setExportMenuAnchor(null)}
+            >
+              <MenuItem onClick={handleExport}>Tudo</MenuItem>
+              <MenuItem onClick={handleExportTimeline}>Histórico</MenuItem>
+              <MenuItem onClick={handleExportTemplate}>Baixar template</MenuItem>
+            </Menu>
             {/* </div> */}
           </div>
         )}
